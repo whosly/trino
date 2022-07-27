@@ -462,7 +462,7 @@ public class IcebergPageSourceProvider
                 .get();
     }
 
-    public ReaderPageSource createDataPageSource(
+    private ReaderPageSource createDataPageSource(
             ConnectorSession session,
             HdfsContext hdfsContext,
             Path path,
