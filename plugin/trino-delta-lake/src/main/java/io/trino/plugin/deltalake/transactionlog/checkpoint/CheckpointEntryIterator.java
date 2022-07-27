@@ -117,6 +117,8 @@ public class CheckpointEntryIterator
 
     private static final Logger log = Logger.get(CheckpointEntryIterator.class);
 
+    private static final int MAX_FIELD_COUNT_OF_ADD_ENTRY = 8;
+
     private final String checkpointPath;
     private final ConnectorSession session;
     private final ConnectorPageSource pageSource;
@@ -201,7 +203,7 @@ public class CheckpointEntryIterator
                 type = schemaManager.getTxnEntryType();
                 break;
             case ADD:
-                type = schemaManager.getAddEntryType(metadataEntry);
+                type = schemaManager.getAddEntryType(metadataEntry, true, true);
                 break;
             case REMOVE:
                 type = schemaManager.getRemoveEntryType();
@@ -353,47 +355,37 @@ public class CheckpointEntryIterator
         Block addEntryBlock = block.getObject(pagePosition, Block.class);
         log.debug("Block %s has %s fields", block, addEntryBlock.getPositionCount());
 
-        Map<String, String> partitionValues = getMap(addEntryBlock, 1);
-        long size = getLong(addEntryBlock, 2);
-        long modificationTime = getLong(addEntryBlock, 3);
-        boolean dataChange = getByte(addEntryBlock, 4) != 0;
-        Map<String, String> tags = getMap(addEntryBlock, 7);
-
-        String path = getString(addEntryBlock, 0);
-        AddFileEntry result;
-        if (!addEntryBlock.isNull(6)) {
-            result = new AddFileEntry(
-                    path,
-                    partitionValues,
-                    size,
-                    modificationTime,
-                    dataChange,
-                    Optional.empty(),
-                    Optional.of(parseStatisticsFromParquet(addEntryBlock.getObject(6, Block.class))),
-                    tags);
+        int totalFieldCount = addEntryBlock.getPositionCount();
+        int fieldId = 0;
+        String path = getString(addEntryBlock, fieldId++);
+        Map<String, String> partitionValues = getMap(addEntryBlock, fieldId++);
+        long size = getLong(addEntryBlock, fieldId++);
+        long modificationTime = getLong(addEntryBlock, fieldId++);
+        boolean dataChange = getByte(addEntryBlock, fieldId++) != 0;
+        Optional<String> stats = Optional.empty();
+        if (!addEntryBlock.isNull(fieldId)) {
+            stats = Optional.of(getString(addEntryBlock, fieldId++));
         }
-        else if (!addEntryBlock.isNull(5)) {
-            result = new AddFileEntry(
-                    path,
-                    partitionValues,
-                    size,
-                    modificationTime,
-                    dataChange,
-                    Optional.of(getString(addEntryBlock, 5)),
-                    Optional.empty(),
-                    tags);
+        else if (totalFieldCount == MAX_FIELD_COUNT_OF_ADD_ENTRY) {
+            fieldId++; // stats field exists, but it's empty
         }
-        else {
-            result = new AddFileEntry(
-                    path,
-                    partitionValues,
-                    size,
-                    modificationTime,
-                    dataChange,
-                    Optional.empty(),
-                    Optional.empty(),
-                    tags);
+        Optional<DeltaLakeParquetFileStatistics> parsedStats = Optional.empty();
+        if (!addEntryBlock.isNull(fieldId)) {
+            parsedStats = Optional.of(parseStatisticsFromParquet(addEntryBlock.getObject(fieldId++, Block.class)));
         }
+        else if (totalFieldCount == MAX_FIELD_COUNT_OF_ADD_ENTRY) {
+            fieldId++; // stats_parsed field exists, but it's empty
+        }
+        Map<String, String> tags = getMap(addEntryBlock, fieldId++);
+        AddFileEntry result = new AddFileEntry(
+                path,
+                partitionValues,
+                size,
+                modificationTime,
+                dataChange,
+                stats,
+                parsedStats,
+                tags);
 
         log.debug("Result: %s", result);
         return DeltaLakeTransactionLogEntry.addFileEntry(result);
