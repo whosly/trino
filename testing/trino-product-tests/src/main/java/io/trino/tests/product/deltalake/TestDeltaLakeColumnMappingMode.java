@@ -65,26 +65,16 @@ public class TestDeltaLakeColumnMappingMode
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
     public void testColumnMappingModeId()
     {
-        String tableName = "test_dl_column_mapping_mode_id" + randomTableSuffix();
-
-        onDelta().executeQuery("" +
-                "CREATE TABLE default." + tableName +
-                " (a_number INT)" +
-                " USING delta " +
-                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                " TBLPROPERTIES ('delta.columnMapping.mode'='id')");
-
-        try {
-            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
-                    .hasMessageContaining("Only 'name' or 'none' is supported for the 'delta.columnMapping.mode' table property");
-        }
-        finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
-        }
+        testColumnMappingMode("id");
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
     public void testColumnMappingModeName()
+    {
+        testColumnMappingMode("name");
+    }
+
+    private void testColumnMappingMode(String mode)
     {
         String tableName = "test_dl_column_mapping_mode_name_" + randomTableSuffix();
 
@@ -94,7 +84,7 @@ public class TestDeltaLakeColumnMappingMode
                 " USING delta " +
                 " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                 " TBLPROPERTIES (" +
-                " 'delta.columnMapping.mode'='name'," +
+                " 'delta.columnMapping.mode'='" + mode + "'," +
                 " 'delta.minReaderVersion'='2'," +
                 " 'delta.minWriterVersion'='5')");
 
@@ -138,8 +128,19 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    public void testColumnMappingModeNameWithNonLowerCaseColumnId()
+    {
+        testColumnMappingModeNameWithNonLowerCaseColumn("id");
+    }
+
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
     public void testColumnMappingModeNameWithNonLowerCaseColumnName()
+    {
+        testColumnMappingModeNameWithNonLowerCaseColumn("name");
+    }
+
+    private void testColumnMappingModeNameWithNonLowerCaseColumn(String mode)
     {
         String tableName = "test_dl_column_mapping_mode_name_non_loewr_case_" + randomTableSuffix();
 
@@ -149,7 +150,7 @@ public class TestDeltaLakeColumnMappingMode
                 " USING delta " +
                 " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                 " TBLPROPERTIES (" +
-                " 'delta.columnMapping.mode'='name'," +
+                " 'delta.columnMapping.mode'='" + mode + "'," +
                 " 'delta.minReaderVersion'='2'," +
                 " 'delta.minWriterVersion'='5')");
 
@@ -173,8 +174,19 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    public void testShowStatsFromJsonForColumnMappingModeId()
+    {
+        testShowStatsFromJsonForColumnMappingMode("id");
+    }
+
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
     public void testShowStatsFromJsonForColumnMappingModeName()
+    {
+        testShowStatsFromJsonForColumnMappingMode("name");
+    }
+
+    private void testShowStatsFromJsonForColumnMappingMode(String mode)
     {
         String tableName = "test_dl_show_stats_json_for_column_mapping_mode_" + randomTableSuffix();
 
@@ -184,7 +196,7 @@ public class TestDeltaLakeColumnMappingMode
                 " USING delta " +
                 " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                 " TBLPROPERTIES (" +
-                " 'delta.columnMapping.mode' = 'name'" +
+                " 'delta.columnMapping.mode' = '" + mode + "'" +
                 ")");
 
         try {
@@ -206,7 +218,18 @@ public class TestDeltaLakeColumnMappingMode
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    public void testShowStatsFromParquetForColumnMappingModeId()
+    {
+        testShowStatsFromParquetForColumnMappingMode("id");
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
     public void testShowStatsFromParquetForColumnMappingModeName()
+    {
+        testShowStatsFromParquetForColumnMappingMode("name");
+    }
+
+    private void testShowStatsFromParquetForColumnMappingMode(String mode)
     {
         String tableName = "test_dl_show_parquet_stats_parquet_for_column_mapping_mode_" + randomTableSuffix();
 
@@ -216,7 +239,7 @@ public class TestDeltaLakeColumnMappingMode
                 " USING delta " +
                 " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                 " TBLPROPERTIES (" +
-                " 'delta.columnMapping.mode' = 'name'," +
+                " 'delta.columnMapping.mode' = '" + mode + "'," +
                 " 'delta.checkpointInterval' = 3" +
                 ")");
 
@@ -240,8 +263,19 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    public void testShowStatsOnPartitionedForColumnMappingModeId()
+    {
+        testShowStatsOnPartitionedForColumnMappingMode("id");
+    }
+
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
     public void testShowStatsOnPartitionedForColumnMappingModeName()
+    {
+        testShowStatsOnPartitionedForColumnMappingMode("name");
+    }
+
+    private void testShowStatsOnPartitionedForColumnMappingMode(String mode)
     {
         String tableName = "test_dl_show_stats_partitioned_for_column_mapping_mode_" + randomTableSuffix();
 
@@ -252,7 +286,7 @@ public class TestDeltaLakeColumnMappingMode
                 " PARTITIONED BY (part) " +
                 " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                 " TBLPROPERTIES (" +
-                " 'delta.columnMapping.mode' = 'name'," +
+                " 'delta.columnMapping.mode' = '" + mode + "'," +
                 " 'checkpointInterval' = 3" +
                 ")");
 
@@ -272,8 +306,19 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    public void testUnsupportedOperationsColumnMappingModeId()
+    {
+        testUnsupportedOperationsColumnMappingModeName("id");
+    }
+
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
     public void testUnsupportedOperationsColumnMappingModeName()
+    {
+        testUnsupportedOperationsColumnMappingModeName("name");
+    }
+
+    private void testUnsupportedOperationsColumnMappingModeName(String mode)
     {
         String tableName = "test_dl_unsupported_column_mapping_mode_" + randomTableSuffix();
 
@@ -283,7 +328,7 @@ public class TestDeltaLakeColumnMappingMode
                 " USING delta " +
                 " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                 " TBLPROPERTIES (" +
-                " 'delta.columnMapping.mode'='name'," +
+                " 'delta.columnMapping.mode'='" + mode + "'," +
                 " 'delta.minReaderVersion'='2'," +
                 " 'delta.minWriterVersion'='5')");
 

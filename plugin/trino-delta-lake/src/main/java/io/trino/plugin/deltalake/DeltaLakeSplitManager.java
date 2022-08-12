@@ -19,6 +19,7 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.hive.HiveTransactionHandle;
+import io.trino.plugin.hive.parquet.ParquetColumnMapping;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -57,6 +58,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getDynamicFil
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxInitialSplitSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getParquetColumnMapping;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -148,6 +150,7 @@ public class DeltaLakeSplitManager
                         .map(DeltaLakeColumnHandle.class::cast))
                 .map(column -> column.getName().toLowerCase(ENGLISH)) // TODO is DeltaLakeColumnHandle.name normalized?
                 .collect(toImmutableSet());
+        ParquetColumnMapping parquetColumnMapping = getParquetColumnMapping(tableHandle.getMetadataEntry());
         List<DeltaLakeColumnMetadata> schema = extractSchema(tableHandle.getMetadataEntry(), typeManager);
         List<DeltaLakeColumnMetadata> predicatedColumns = schema.stream()
                 .filter(column -> predicatedColumnNames.contains(column.getName())) // DeltaLakeColumnMetadata.name is lowercase
@@ -206,7 +209,8 @@ public class DeltaLakeSplitManager
                             addAction.getCanonicalPartitionValues(),
                             statisticsPredicate,
                             splittable,
-                            remainingInitialSplits)
+                            remainingInitialSplits,
+                            parquetColumnMapping)
                             .stream();
                 });
     }
@@ -242,7 +246,8 @@ public class DeltaLakeSplitManager
             Map<String, Optional<String>> partitionKeys,
             TupleDomain<DeltaLakeColumnHandle> statisticsPredicate,
             boolean splittable,
-            AtomicInteger remainingInitialSplits)
+            AtomicInteger remainingInitialSplits,
+            ParquetColumnMapping columnMapping)
     {
         long fileSize = addFileEntry.getSize();
 
@@ -257,7 +262,8 @@ public class DeltaLakeSplitManager
                     ImmutableList.of(),
                     SplitWeight.standard(),
                     statisticsPredicate,
-                    partitionKeys));
+                    partitionKeys,
+                    columnMapping));
         }
 
         ImmutableList.Builder<DeltaLakeSplit> splits = ImmutableList.builder();
@@ -281,7 +287,8 @@ public class DeltaLakeSplitManager
                     ImmutableList.of(),
                     SplitWeight.fromProportion(Math.min(Math.max((double) splitSize / maxSplitSize, minimumAssignedSplitWeight), 1.0)),
                     statisticsPredicate,
-                    partitionKeys));
+                    partitionKeys,
+                    columnMapping));
 
             currentOffset += splitSize;
         }

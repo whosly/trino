@@ -176,7 +176,7 @@ public class DeltaLakePageSourceProvider
                 split.getLength(),
                 hiveColumnHandles,
                 parquetPredicate,
-                true,
+                split.getColumnMapping(),
                 parquetDateTimeZone,
                 fileFormatDataSourceStats,
                 parquetReaderOptions.withMaxReadBlockSize(getParquetMaxReadBlockSize(session))

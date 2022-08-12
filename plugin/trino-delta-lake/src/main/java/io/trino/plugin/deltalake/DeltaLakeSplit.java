@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
+import io.trino.plugin.hive.parquet.ParquetColumnMapping;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
@@ -48,6 +49,7 @@ public class DeltaLakeSplit
     private final SplitWeight splitWeight;
     private final TupleDomain<DeltaLakeColumnHandle> statisticsPredicate;
     private final Map<String, Optional<String>> partitionKeys;
+    private final ParquetColumnMapping columnMapping;
 
     @JsonCreator
     public DeltaLakeSplit(
@@ -59,7 +61,8 @@ public class DeltaLakeSplit
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("splitWeight") SplitWeight splitWeight,
             @JsonProperty("statisticsPredicate") TupleDomain<DeltaLakeColumnHandle> statisticsPredicate,
-            @JsonProperty("partitionKeys") Map<String, Optional<String>> partitionKeys)
+            @JsonProperty("partitionKeys") Map<String, Optional<String>> partitionKeys,
+            @JsonProperty("columnMapping") ParquetColumnMapping columnMapping)
     {
         this.path = requireNonNull(path, "path is null");
         this.start = start;
@@ -70,6 +73,7 @@ public class DeltaLakeSplit
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
         this.statisticsPredicate = requireNonNull(statisticsPredicate, "statisticsPredicate is null");
         this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
+        this.columnMapping = requireNonNull(columnMapping, "columnMapping is null");
     }
 
     @Override
@@ -137,6 +141,12 @@ public class DeltaLakeSplit
         return partitionKeys;
     }
 
+    @JsonProperty
+    public ParquetColumnMapping getColumnMapping()
+    {
+        return columnMapping;
+    }
+
     @Override
     public long getRetainedSizeInBytes()
     {
@@ -169,6 +179,7 @@ public class DeltaLakeSplit
                 .add("addresses", addresses)
                 .add("statisticsPredicate", statisticsPredicate)
                 .add("partitionKeys", partitionKeys)
+                .add("useColumnNames", columnMapping)
                 .toString();
     }
 
@@ -188,12 +199,13 @@ public class DeltaLakeSplit
                 path.equals(that.path) &&
                 addresses.equals(that.addresses) &&
                 Objects.equals(statisticsPredicate, that.statisticsPredicate) &&
-                Objects.equals(partitionKeys, that.partitionKeys);
+                Objects.equals(partitionKeys, that.partitionKeys) &&
+                Objects.equals(columnMapping, that.columnMapping);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(path, start, length, fileSize, addresses, statisticsPredicate, partitionKeys);
+        return Objects.hash(path, start, length, fileSize, addresses, statisticsPredicate, partitionKeys, columnMapping);
     }
 }

@@ -28,6 +28,7 @@ import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.hive.parquet.ParquetColumnMapping.NAME;
 import static io.trino.spi.type.RowType.rowType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
@@ -64,7 +65,7 @@ public class TestParquetPageSourceFactory
                         new GroupType(OPTIONAL, "optional_level2",
                                 new PrimitiveType(REQUIRED, INT32, "required_level3"))));
         assertEquals(
-                ParquetPageSourceFactory.getColumnType(columnHandle, fileSchema, true).get(),
+                ParquetPageSourceFactory.getColumnType(columnHandle, fileSchema, NAME).get(),
                 fileSchema.getType("optional_level1"));
     }
 }

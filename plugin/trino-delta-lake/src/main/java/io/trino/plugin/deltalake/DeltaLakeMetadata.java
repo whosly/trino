@@ -138,6 +138,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -395,8 +396,8 @@ public class DeltaLakeMetadata
         Optional<MetadataEntry> metadata = metastore.getMetadata(tableSnapshot, session);
         if (metadata.isPresent()) {
             ColumnMappingMode columnMappingMode = getColumnMappingMode(metadata.get());
-            if (columnMappingMode != ColumnMappingMode.NAME && columnMappingMode != ColumnMappingMode.NONE) {
-                throw new TrinoException(NOT_SUPPORTED, format("Only 'name' or 'none' is supported for the '%s' table property", COLUMN_MAPPING_MODE_CONFIGURATION_KEY));
+            if (columnMappingMode != ColumnMappingMode.ID && columnMappingMode != ColumnMappingMode.NAME && columnMappingMode != ColumnMappingMode.NONE) {
+                throw new TrinoException(NOT_SUPPORTED, format("Only 'id', 'name' or 'none' is supported for the '%s' table property", COLUMN_MAPPING_MODE_CONFIGURATION_KEY));
             }
         }
         return new DeltaLakeTableHandle(
@@ -569,7 +570,7 @@ public class DeltaLakeMetadata
     {
         ImmutableList.Builder<DeltaLakeColumnHandle> columns = ImmutableList.builder();
         extractSchema(deltaMetadata, typeManager).stream()
-                .map(column -> toColumnHandle(column.getColumnMetadata(), column.getPhysicalName(), column.getPhysicalColumnType(), deltaMetadata.getCanonicalPartitionColumns()))
+                .map(column -> toColumnHandle(column.getColumnMetadata(), column.getFieldId(), column.getPhysicalName(), column.getPhysicalColumnType(), deltaMetadata.getCanonicalPartitionColumns()))
                 .forEach(columns::add);
         columns.add(pathColumnHandle());
         columns.add(fileSizeColumnHandle());
@@ -1371,7 +1372,7 @@ public class DeltaLakeMetadata
     @Override
     public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return new DeltaLakeColumnHandle(ROW_ID_COLUMN_NAME, ROW_ID_COLUMN_TYPE, ROW_ID_COLUMN_NAME, ROW_ID_COLUMN_TYPE, SYNTHESIZED);
+        return new DeltaLakeColumnHandle(ROW_ID_COLUMN_NAME, ROW_ID_COLUMN_TYPE, OptionalInt.empty(), ROW_ID_COLUMN_NAME, ROW_ID_COLUMN_TYPE, SYNTHESIZED);
     }
 
     @Override
@@ -1426,7 +1427,7 @@ public class DeltaLakeMetadata
                     RowType.field(RowType.from(unmodifiedColumnFields)));
         }
 
-        return new DeltaLakeColumnHandle(ROW_ID_COLUMN_NAME, rowIdType, ROW_ID_COLUMN_NAME, rowIdType, SYNTHESIZED);
+        return new DeltaLakeColumnHandle(ROW_ID_COLUMN_NAME, rowIdType, OptionalInt.empty(), ROW_ID_COLUMN_NAME, rowIdType, SYNTHESIZED);
     }
 
     @Override
@@ -1489,7 +1490,7 @@ public class DeltaLakeMetadata
     @Override
     public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return new DeltaLakeColumnHandle(ROW_ID_COLUMN_NAME, MERGE_ROW_ID_TYPE, ROW_ID_COLUMN_NAME, MERGE_ROW_ID_TYPE, SYNTHESIZED);
+        return new DeltaLakeColumnHandle(ROW_ID_COLUMN_NAME, MERGE_ROW_ID_TYPE, OptionalInt.empty(), ROW_ID_COLUMN_NAME, MERGE_ROW_ID_TYPE, SYNTHESIZED);
     }
 
     @Override
@@ -2674,10 +2675,16 @@ public class DeltaLakeMetadata
 
     private static DeltaLakeColumnHandle toColumnHandle(ColumnMetadata column, String physicalName, Type physicalType, Collection<String> partitionColumns)
     {
+        return toColumnHandle(column, OptionalInt.empty(), physicalName, physicalType, partitionColumns);
+    }
+
+    private static DeltaLakeColumnHandle toColumnHandle(ColumnMetadata column, OptionalInt fieldId, String physicalName, Type physicalType, Collection<String> partitionColumns)
+    {
         boolean isPartitionKey = partitionColumns.stream().anyMatch(partition -> partition.equalsIgnoreCase(column.getName()));
         return new DeltaLakeColumnHandle(
                 column.getName(),
                 column.getType(),
+                fieldId,
                 physicalName,
                 physicalType,
                 isPartitionKey ? PARTITION_KEY : REGULAR);

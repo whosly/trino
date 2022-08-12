@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import static io.trino.plugin.hive.parquet.ParquetColumnMapping.NAME;
 import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestDeltaLakeSplitManager
@@ -176,7 +177,7 @@ public class TestDeltaLakeSplitManager
     private DeltaLakeSplit makeSplit(long start, long splitSize, long fileSize, double minimumAssignedSplitWeight)
     {
         SplitWeight splitWeight = SplitWeight.fromProportion(Math.min(Math.max((double) fileSize / splitSize, minimumAssignedSplitWeight), 1.0));
-        return new DeltaLakeSplit(FULL_PATH, start, splitSize, fileSize, 0, ImmutableList.of(), splitWeight, TupleDomain.all(), ImmutableMap.of());
+        return new DeltaLakeSplit(FULL_PATH, start, splitSize, fileSize, 0, ImmutableList.of(), splitWeight, TupleDomain.all(), ImmutableMap.of(), NAME);
     }
 
     private List<DeltaLakeSplit> getSplits(DeltaLakeSplitManager splitManager, DeltaLakeConfig deltaLakeConfig)

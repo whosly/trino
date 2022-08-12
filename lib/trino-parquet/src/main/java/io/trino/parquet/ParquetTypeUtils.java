@@ -185,6 +185,17 @@ public final class ParquetTypeUtils
         return null;
     }
 
+    public static org.apache.parquet.schema.Type getParquetTypeById(int fieldId, GroupType groupType)
+    {
+        for (org.apache.parquet.schema.Type type : groupType.getFields()) {
+            if (type.getId().intValue() == fieldId) {
+                return type;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Parquet column names are case-sensitive unlike Hive, which converts all column names to lowercase.
      * Therefore, when we look up columns we first check for exact match, and if that fails we look for a case-insensitive match.

@@ -68,6 +68,7 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
+import static io.trino.plugin.hive.parquet.ParquetColumnMapping.NAME;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -307,7 +308,7 @@ public class DeltaLakeMergeSink
                         .map(DeltaLakeColumnHandle::toHiveColumnHandle)
                         .collect(toImmutableList()),
                 TupleDomain.all(),
-                true,
+                NAME,
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),
                 new ParquetReaderOptions());

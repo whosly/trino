@@ -25,6 +25,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
+import io.trino.plugin.hive.parquet.ParquetColumnMapping;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.Location;
 import io.trino.spi.TrinoException;
@@ -48,6 +49,7 @@ import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Function;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -81,6 +83,7 @@ public final class DeltaLakeSchemaSupport
 
     public enum ColumnMappingMode
     {
+        ID,
         NAME,
         NONE,
         UNKNOWN,
@@ -107,6 +110,21 @@ public final class DeltaLakeSchemaSupport
         return Boolean.parseBoolean(metadataEntry.getConfiguration().getOrDefault(APPEND_ONLY_CONFIGURATION_KEY, "false"));
     }
 
+    public static ParquetColumnMapping getParquetColumnMapping(MetadataEntry metadata)
+    {
+        ColumnMappingMode columnMappingMode = getColumnMappingMode(metadata);
+        switch (columnMappingMode) {
+            case ID:
+                return ParquetColumnMapping.FIELD_ID;
+            case NAME:
+            case NONE:
+                return ParquetColumnMapping.NAME;
+            case UNKNOWN:
+            default:
+                throw new TrinoException(NOT_SUPPORTED, format("Only 'name' or 'none' is supported for the '%s' table property", COLUMN_MAPPING_MODE_CONFIGURATION_KEY));
+        }
+    }
+
     public static ColumnMappingMode getColumnMappingMode(MetadataEntry metadata)
     {
         String columnMappingMode = metadata.getConfiguration().getOrDefault(COLUMN_MAPPING_MODE_CONFIGURATION_KEY, "none");
@@ -125,7 +143,7 @@ public final class DeltaLakeSchemaSupport
         }
         return schema.stream()
                 .filter(entry -> canonicalPartitionColumns.contains(entry.getName()))
-                .map(entry -> new DeltaLakeColumnHandle(entry.getName(), entry.getType(), entry.getPhysicalName(), entry.getPhysicalColumnType(), PARTITION_KEY))
+                .map(entry -> new DeltaLakeColumnHandle(entry.getName(), entry.getType(), OptionalInt.empty(), entry.getPhysicalName(), entry.getPhysicalColumnType(), PARTITION_KEY))
                 .collect(toImmutableList());
     }
 
@@ -321,8 +339,8 @@ public final class DeltaLakeSchemaSupport
     public static List<DeltaLakeColumnMetadata> extractSchema(MetadataEntry metadataEntry, TypeManager typeManager)
     {
         ColumnMappingMode mappingMode = getColumnMappingMode(metadataEntry);
-        if (mappingMode != ColumnMappingMode.NAME && mappingMode != ColumnMappingMode.NONE) {
-            throw new TrinoException(NOT_SUPPORTED, format("Only 'name' or 'none' is supported for the '%s' table property", COLUMN_MAPPING_MODE_CONFIGURATION_KEY));
+        if (mappingMode != ColumnMappingMode.ID && mappingMode != ColumnMappingMode.NAME && mappingMode != ColumnMappingMode.NONE) {
+            throw new TrinoException(NOT_SUPPORTED, format("Only 'id', 'name' or 'none' is supported for the '%s' table property", COLUMN_MAPPING_MODE_CONFIGURATION_KEY));
         }
         return Optional.ofNullable(metadataEntry.getSchemaString())
                 .map(json -> getColumnMetadata(json, typeManager, mappingMode))
@@ -348,16 +366,27 @@ public final class DeltaLakeSchemaSupport
         JsonNode typeNode = node.get("type");
         boolean nullable = node.get("nullable").asBoolean();
         Type columnType = buildType(typeManager, typeNode, false);
-        String physicalName;
+        OptionalInt fieldId = OptionalInt.empty();
+        String physicalName = null;
         Type physicalColumnType;
-        if (mappingMode == ColumnMappingMode.NAME) {
-            physicalName = node.get("metadata").get("delta.columnMapping.physicalName").asText();
-            verify(!isNullOrEmpty(physicalName), "physicalName is null or empty");
-            physicalColumnType = buildType(typeManager, typeNode, true);
-        }
-        else {
-            physicalName = fieldName;
-            physicalColumnType = columnType;
+        switch (mappingMode) {
+            case ID:
+                String columnMappingId = node.get("metadata").get("delta.columnMapping.id").asText();
+                verify(!isNullOrEmpty(columnMappingId), "id is null or empty");
+                fieldId = OptionalInt.of(Integer.parseInt(columnMappingId));
+                // Databricks stores column statics with physical name
+                physicalName = node.get("metadata").get("delta.columnMapping.physicalName").asText();
+                verify(!isNullOrEmpty(physicalName), "physicalName is null or empty");
+                physicalColumnType = buildType(typeManager, typeNode, true);
+                break;
+            case NAME:
+                physicalName = node.get("metadata").get("delta.columnMapping.physicalName").asText();
+                verify(!isNullOrEmpty(physicalName), "physicalName is null or empty");
+                physicalColumnType = buildType(typeManager, typeNode, true);
+                break;
+            default:
+                physicalName = fieldName;
+                physicalColumnType = columnType;
         }
         ColumnMetadata columnMetadata = ColumnMetadata.builder()
                 .setName(fieldName)
@@ -365,7 +394,7 @@ public final class DeltaLakeSchemaSupport
                 .setNullable(nullable)
                 .setComment(Optional.ofNullable(getComment(node)))
                 .build();
-        return new DeltaLakeColumnMetadata(columnMetadata, physicalName, physicalColumnType);
+        return new DeltaLakeColumnMetadata(columnMetadata, fieldId, physicalName, physicalColumnType);
     }
 
     public static Map<String, String> getColumnComments(MetadataEntry metadataEntry)
