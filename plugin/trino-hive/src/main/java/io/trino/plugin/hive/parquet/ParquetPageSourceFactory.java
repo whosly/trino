@@ -337,17 +337,19 @@ public class ParquetPageSourceFactory
 
     private static Optional<org.apache.parquet.schema.Type> getParquetType(GroupType groupType, ParquetColumnMapping columnMapping, HiveColumnHandle column)
     {
-        if (columnMapping == FIELD_ID) {
-            return Optional.ofNullable(getParquetTypeById(column.getBaseHiveColumnIndex(), groupType));
-        }
-        if (columnMapping == NAME) {
-            return Optional.ofNullable(getParquetTypeByName(column.getBaseColumnName(), groupType));
-        }
-        if (column.getBaseHiveColumnIndex() < groupType.getFieldCount()) {
-            return Optional.of(groupType.getType(column.getBaseHiveColumnIndex()));
-        }
+        switch (columnMapping) {
+            case FIELD_ID:
+                return Optional.ofNullable(getParquetTypeById(column.getBaseHiveColumnIndex(), groupType));
+            case NAME:
+                return Optional.ofNullable(getParquetTypeByName(column.getBaseColumnName(), groupType));
+            case COLUMN_INDEX:
+                if (column.getBaseHiveColumnIndex() < groupType.getFieldCount()) {
+                    return Optional.of(groupType.getType(column.getBaseHiveColumnIndex()));
+                }
 
-        return Optional.empty();
+                return Optional.empty();
+        }
+        throw new IllegalArgumentException("Unsupported column mapping: " + columnMapping);
     }
 
     public static Optional<org.apache.parquet.schema.Type> getColumnType(HiveColumnHandle column, MessageType messageType, ParquetColumnMapping columnMapping)

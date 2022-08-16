@@ -352,4 +352,45 @@ public class TestDeltaLakeColumnMappingMode
             onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    public void testSpecialCharacterColumnNamesWithColumnMappingModeId()
+    {
+        testSpecialCharacterColumnNamesWithColumnMappingMode("id");
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    public void testSpecialCharacterColumnNamesWithColumnMappingModeName()
+    {
+        testSpecialCharacterColumnNamesWithColumnMappingMode("name");
+    }
+
+    private void testSpecialCharacterColumnNamesWithColumnMappingMode(String mode)
+    {
+        String tableName = "test_dl_special_character_column_mapping_mode_" + randomTableSuffix();
+
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                " (`;{}()\\n\\t=` INT)" +
+                " USING delta " +
+                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                " TBLPROPERTIES (" +
+                " 'delta.columnMapping.mode' = '" + mode + "'," +
+                " 'checkpointInterval' = 3" +
+                ")");
+
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (0)");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1)");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (null)");
+
+            assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
+                    .containsOnly(ImmutableList.of(
+                            row(";{}()\\n\\t=", null, null, 0.33333333333, null, "0", "1"),
+                            row(null, null, null, null, 3.0, null, null)));
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE default." + tableName);
+        }
+    }
 }

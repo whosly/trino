@@ -121,7 +121,7 @@ public final class DeltaLakeSchemaSupport
                 return ParquetColumnMapping.NAME;
             case UNKNOWN:
             default:
-                throw new TrinoException(NOT_SUPPORTED, format("Only 'name' or 'none' is supported for the '%s' table property", COLUMN_MAPPING_MODE_CONFIGURATION_KEY));
+                throw new TrinoException(NOT_SUPPORTED, format("Only 'id', 'name' or 'none' is supported for the '%s' table property", COLUMN_MAPPING_MODE_CONFIGURATION_KEY));
         }
     }
 
@@ -367,14 +367,14 @@ public final class DeltaLakeSchemaSupport
         boolean nullable = node.get("nullable").asBoolean();
         Type columnType = buildType(typeManager, typeNode, false);
         OptionalInt fieldId = OptionalInt.empty();
-        String physicalName = null;
+        String physicalName;
         Type physicalColumnType;
         switch (mappingMode) {
             case ID:
                 String columnMappingId = node.get("metadata").get("delta.columnMapping.id").asText();
                 verify(!isNullOrEmpty(columnMappingId), "id is null or empty");
                 fieldId = OptionalInt.of(Integer.parseInt(columnMappingId));
-                // Databricks stores column statics with physical name
+                // Databricks stores column statistics with physical name
                 physicalName = node.get("metadata").get("delta.columnMapping.physicalName").asText();
                 verify(!isNullOrEmpty(physicalName), "physicalName is null or empty");
                 physicalColumnType = buildType(typeManager, typeNode, true);
