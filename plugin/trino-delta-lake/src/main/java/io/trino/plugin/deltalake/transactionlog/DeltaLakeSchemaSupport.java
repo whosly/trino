@@ -339,12 +339,17 @@ public final class DeltaLakeSchemaSupport
     public static List<DeltaLakeColumnMetadata> extractSchema(MetadataEntry metadataEntry, TypeManager typeManager)
     {
         ColumnMappingMode mappingMode = getColumnMappingMode(metadataEntry);
-        if (mappingMode != ColumnMappingMode.ID && mappingMode != ColumnMappingMode.NAME && mappingMode != ColumnMappingMode.NONE) {
-            throw new TrinoException(NOT_SUPPORTED, format("Only 'id', 'name' or 'none' is supported for the '%s' table property", COLUMN_MAPPING_MODE_CONFIGURATION_KEY));
-        }
+        verifySupportedColumnMapping(mappingMode);
         return Optional.ofNullable(metadataEntry.getSchemaString())
                 .map(json -> getColumnMetadata(json, typeManager, mappingMode))
                 .orElseThrow(() -> new IllegalStateException("Serialized schema not found in transaction log for " + metadataEntry.getName()));
+    }
+
+    public static void verifySupportedColumnMapping(ColumnMappingMode mappingMode)
+    {
+        if (mappingMode != ColumnMappingMode.ID && mappingMode != ColumnMappingMode.NAME && mappingMode != ColumnMappingMode.NONE) {
+            throw new TrinoException(NOT_SUPPORTED, format("Only 'id', 'name' or 'none' is supported for the '%s' table property", COLUMN_MAPPING_MODE_CONFIGURATION_KEY));
+        }
     }
 
     @VisibleForTesting

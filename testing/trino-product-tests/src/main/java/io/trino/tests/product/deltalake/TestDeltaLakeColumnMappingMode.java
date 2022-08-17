@@ -80,8 +80,9 @@ public class TestDeltaLakeColumnMappingMode
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
-                " (a_number INT, array_col ARRAY<STRUCT<array_struct_element: STRING>>, nested STRUCT<field1: STRING>, a_string STRING)" +
+                " (a_number INT, array_col ARRAY<STRUCT<array_struct_element: STRING>>, nested STRUCT<field1: STRING>, a_string STRING, part STRING)" +
                 " USING delta " +
+                " PARTITIONED BY (part)" +
                 " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                 " TBLPROPERTIES (" +
                 " 'delta.columnMapping.mode'='" + mode + "'," +
@@ -91,16 +92,16 @@ public class TestDeltaLakeColumnMappingMode
         try {
             onDelta().executeQuery("" +
                     "INSERT INTO default." + tableName + " VALUES " +
-                    "(1, array(struct('nested 1')), struct('databricks 1'),'ala'), " +
-                    "(2, array(struct('nested 2')), struct('databricks 2'), 'kota')");
+                    "(1, array(struct('nested 1')), struct('databricks 1'),'ala', 'part1'), " +
+                    "(2, array(struct('nested 2')), struct('databricks 2'), 'kota', 'part2')");
 
             List<Row> expectedRows = ImmutableList.of(
-                    row(1, "nested 1", "databricks 1", "ala"),
-                    row(2, "nested 2", "databricks 2", "kota"));
+                    row(1, "nested 1", "databricks 1", "ala", "part1"),
+                    row(2, "nested 2", "databricks 2", "kota", "part2"));
 
-            assertThat(onDelta().executeQuery("SELECT a_number, array_col[0].array_struct_element, nested.field1, a_string FROM default." + tableName))
+            assertThat(onDelta().executeQuery("SELECT a_number, array_col[0].array_struct_element, nested.field1, a_string, part FROM default." + tableName))
                     .containsOnly(expectedRows);
-            assertThat(onTrino().executeQuery("SELECT a_number, array_col[1].array_struct_element, nested.field1, a_string FROM delta.default." + tableName))
+            assertThat(onTrino().executeQuery("SELECT a_number, array_col[1].array_struct_element, nested.field1, a_string, part FROM delta.default." + tableName))
                     .containsOnly(expectedRows);
             assertThat(onTrino().executeQuery("SELECT a_string FROM delta.default." + tableName + " WHERE a_number = 1"))
                     .containsOnly(ImmutableList.of(row("ala")));
@@ -110,17 +111,19 @@ public class TestDeltaLakeColumnMappingMode
             // Verify the connector can read renamed columns correctly
             onDelta().executeQuery("ALTER TABLE default." + tableName + " RENAME COLUMN a_number TO new_a_column");
             onDelta().executeQuery("ALTER TABLE default." + tableName + " RENAME COLUMN nested.field1 TO field2");
+            onDelta().executeQuery("ALTER TABLE default." + tableName + " RENAME COLUMN part TO new_part");
 
             assertThat(onTrino().executeQuery("DESCRIBE delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
                             row("new_a_column", "integer", "", ""),
                             row("array_col", "array(row(array_struct_element varchar))", "", ""),
                             row("nested", "row(field2 varchar)", "", ""),
-                            row("a_string", "varchar", "", "")));
+                            row("a_string", "varchar", "", ""),
+                            row("new_part", "varchar", "", "")));
 
-            assertThat(onDelta().executeQuery("SELECT new_a_column, array_col[0].array_struct_element, nested.field2, a_string FROM default." + tableName))
+            assertThat(onDelta().executeQuery("SELECT new_a_column, array_col[0].array_struct_element, nested.field2, a_string, new_part FROM default." + tableName))
                     .containsOnly(expectedRows);
-            assertThat(onTrino().executeQuery("SELECT new_a_column, array_col[1].array_struct_element, nested.field2, a_string FROM delta.default." + tableName))
+            assertThat(onTrino().executeQuery("SELECT new_a_column, array_col[1].array_struct_element, nested.field2, a_string, new_part FROM delta.default." + tableName))
                     .containsOnly(expectedRows);
         }
         finally {

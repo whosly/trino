@@ -61,11 +61,11 @@ public class DeltaLakeColumnHandle
     private final OptionalInt fieldId;
     // Hold field names in Parquet files
     // The value is same as 'name' when the column mapping mode is none
-    // The value is same as 'delta.columnMapping.physicalName' when the column mapping mode is name. e.g. col-6707cc9e-f3aa-4e6b-b8ef-1b03d3475680
+    // The value is same as 'delta.columnMapping.physicalName' when the column mapping mode is id or name. e.g. col-6707cc9e-f3aa-4e6b-b8ef-1b03d3475680
     private final String physicalName;
     // Hold type in Parquet files
     // The value is same as 'type' when the column mapping mode is none
-    // The value is same as 'delta.columnMapping.physicalName' when the column mapping mode is name. e.g. row(col-5924c8b3-04cf-4146-abb5-2c229e7ff708 integer)
+    // The value is same as 'delta.columnMapping.physicalName' when the column mapping mode is id or name. e.g. row(col-5924c8b3-04cf-4146-abb5-2c229e7ff708 integer)
     private final Type physicalType;
     private final DeltaLakeColumnType columnType;
 
