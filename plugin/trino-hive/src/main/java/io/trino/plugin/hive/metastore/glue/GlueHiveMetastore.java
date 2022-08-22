@@ -142,6 +142,7 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateSt
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -590,6 +591,14 @@ public class GlueHiveMetastore
         }
     }
 
+    private void deleteTable(String schema, String table)
+    {
+        stats.getDeleteTable().call(() ->
+                glueClient.deleteTable(new DeleteTableRequest()
+                        .withDatabaseName(schema)
+                        .withName(table)));
+    }
+
     private static boolean isManagedTable(Table table)
     {
         return table.getTableType().equals(MANAGED_TABLE.name());
@@ -630,7 +639,34 @@ public class GlueHiveMetastore
     @Override
     public void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "Table rename is not yet supported by Glue service");
+        boolean newTableCreated = false;
+        try {
+            Optional<Table> table = getTable(databaseName, tableName);
+            if (table.isEmpty()) {
+                throw new TableNotFoundException(schemaTableName(databaseName, tableName));
+            }
+            TableInput tableInput = GlueInputConverter.convertTable(table.get())
+                    .withName(newTableName);
+            CreateTableRequest createTableRequest = new CreateTableRequest()
+                    .withDatabaseName(newDatabaseName)
+                    .withTableInput(tableInput);
+            stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
+            newTableCreated = true;
+            deleteTable(databaseName, tableName);
+        }
+        catch (RuntimeException e) {
+            if (newTableCreated) {
+                try {
+                    deleteTable(newDatabaseName, newTableName);
+                }
+                catch (RuntimeException cleanupException) {
+                    if (!cleanupException.equals(e)) {
+                        e.addSuppressed(cleanupException);
+                    }
+                }
+            }
+            throw e;
+        }
     }
 
     @Override
