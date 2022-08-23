@@ -57,6 +57,7 @@ import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HivePrincipal;
+import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
@@ -290,6 +291,7 @@ public class DeltaLakeMetadata
     private final ExtendedStatisticsAccess statisticsAccess;
     private final boolean deleteSchemaLocationsFallback;
     private final boolean useUniqueTableLocation;
+    private final String metastoreType;
 
     public DeltaLakeMetadata(
             DeltaLakeMetastore metastore,
@@ -310,7 +312,8 @@ public class DeltaLakeMetadata
             boolean deleteSchemaLocationsFallback,
             DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider,
             ExtendedStatisticsAccess statisticsAccess,
-            boolean useUniqueTableLocation)
+            boolean useUniqueTableLocation,
+            MetastoreTypeConfig metastoreTypeConfig)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -332,6 +335,7 @@ public class DeltaLakeMetadata
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.useUniqueTableLocation = useUniqueTableLocation;
+        this.metastoreType = requireNonNull(metastoreTypeConfig, "metastoreType is null").getMetastoreType();
     }
 
     @Override
@@ -1996,7 +2000,7 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
         Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
-        if (table.getTableType().equals(MANAGED_TABLE.name())) {
+        if (table.getTableType().equals(MANAGED_TABLE.name()) && !metastoreType.equalsIgnoreCase("glue")) {
             throw new TrinoException(NOT_SUPPORTED, "Renaming managed tables is not supported");
         }
         metastore.renameTable(session, handle.getSchemaTableName(), newTableName);
