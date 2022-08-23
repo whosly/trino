@@ -217,6 +217,19 @@ public class BigQueryClient
         return bigQuery.create(jobInfo);
     }
 
+    public TableResult query(String sql)
+    {
+        log.debug("Execute query: %s", sql);
+        try {
+            // Don't call another query method because setting create disposition in jobs with DDL statements is unsupported
+            return bigQuery.query(QueryJobConfiguration.of(sql));
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BigQueryException(BaseHttpServiceException.UNKNOWN_CODE, format("Failed to run the query [%s]", sql), e);
+        }
+    }
+
     public TableResult query(String sql, boolean useQueryResultsCache, CreateDisposition createDisposition)
     {
         log.debug("Execute query: %s", sql);
