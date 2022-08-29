@@ -96,7 +96,7 @@ public class HiveHadoop
     public static class Builder
             extends BaseTestContainer.Builder<HiveHadoop.Builder, HiveHadoop>
     {
-        private Builder()
+        public Builder()
         {
             this.image = DEFAULT_IMAGE;
             this.hostName = HOST_NAME;
